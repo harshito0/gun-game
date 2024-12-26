@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+        }
+        #gameCanvas {
+            border: 2px solid black;
+            background-color: white;
+            display: block;
+            margin: 20px auto;
+        }
+        #controls {
+            margin-top: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #scoreBoard {
+            margin: 20px 0;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Canvas Shooting Game</h1>
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+    <div id="scoreBoard">
+        <span>Current Score: <span id="currentScore">0</span></span>
+        <br>
+        <span>Highest Score: <span id="highestScore">0</span></span>
+    </div>
+    <div id="controls">
+        <button id="startGameBtn">Start Game</button>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startGameBtn = document.getElementById('startGameBtn');
+        const currentScoreEl = document.getElementById('currentScore');
+        const highestScoreEl = document.getElementById('highestScore');
+
+        let gameInterval;
+        let gunX = canvas.width / 2 - 20;
+        const gunWidth = 40, gunHeight = 10;
+        const bullets = [];
+        const monster = { x: 50, y: 50, radius: 20, dx: 2, dy: 2 };
+        let score = 0;
+        let highestScore = localStorage.getItem('highestScore') || 0;
+        let misses = 0;
+        let gameRunning = false;
+
+        highestScoreEl.textContent = highestScore;
+
+        function resetGame() {
+            clearInterval(gameInterval);
+            gunX = canvas.width / 2 - 20;
+            bullets.length = 0;
+            monster.x = 50;
+            monster.y = 50;
+            monster.dx = 2;
+            monster.dy = 2;
+            score = 0;
+            misses = 0;
+            gameRunning = false;
+            currentScoreEl.textContent = score;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function drawGun() {
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(gunX, canvas.height - gunHeight - 10, gunWidth, gunHeight);
+        }
+
+        function drawBullets() {
+            ctx.fillStyle = 'red';
+            bullets.forEach((bullet, index) => {
+                bullet.y -= 5;
+                ctx.fillRect(bullet.x, bullet.y, 5, 10);
+                if (bullet.y < 0) {
+                    bullets.splice(index, 1);
+                    misses++;
+                    if (misses >=5) gameOver();
+                }
+            });
+        }
+
+        function drawMonster() {
+            ctx.fillStyle = 'red';
+            ctx.beginPath();
+            ctx.arc(monster.x, monster.y, monster.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.closePath();
+
+            // Move monster
+            monster.x += monster.dx;
+            monster.y += monster.dy;
+
+            // Bounce off walls
+            if (monster.x <= monster.radius || monster.x >= canvas.width - monster.radius) {
+                monster.dx *= -1;
+            }
+            if (monster.y <= monster.radius || monster.y >= canvas.height - monster.radius) {
+                monster.dy *= -1;
+            }
+        }
+
+        function detectCollisions() {
+            bullets.forEach((bullet, index) => {
+                const dx = bullet.x - monster.x;
+                const dy = bullet.y - monster.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < monster.radius) {
+                    score += 15;
+                    currentScoreEl.textContent = score;
+                    if (score > highestScore) {
+                        highestScore = score;
+                        localStorage.setItem('highestScore', highestScore);
+                        highestScoreEl.textContent = highestScore;
+                    }
+                    bullets.splice(index, 1);
+                    monster.x = Math.random() * (canvas.width - monster.radius * 2) + monster.radius;
+                    monster.y = Math.random() * (canvas.height - monster.radius * 2) + monster.radius;
+
+                    // Increase monster speed after score > 50
+                    if (score > 30) {
+                        monster.dx *= 1.3;
+                        monster.dy *= 1.3;
+                    }
+                }
+            });
+        }
+
+        function gameOver() {
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'black';
+            ctx.font = '30px Arial';
+            ctx.fillText('Game Over', canvas.width / 2 - 70, canvas.height / 2);
+            clearInterval(gameInterval);
+            gameRunning = false;
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGun();
+            drawBullets();
+            drawMonster();
+            detectCollisions();
+        }
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            if (e.key === 'ArrowLeft' && gunX > 0) {
+                gunX -= 10;
+            } else if (e.key === 'ArrowRight' && gunX < canvas.width - gunWidth) {
+                gunX += 10;
+            } else if (e.key === ' ') {
+                bullets.push({ x: gunX + gunWidth / 2 - 2.5, y: canvas.height - gunHeight - 20 });
+            }
+        });
+
+        startGameBtn.addEventListener('click', () => {
+            if (!gameRunning) {
+                resetGame();
+                gameRunning = true;
+                gameInterval = setInterval(gameLoop, 20);
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !gameRunning) {
+                resetGame();
+                gameRunning = true;
+                gameInterval = setInterval(gameLoop, 20);
+            }
+        });
+    </script>
+</body>
+</html>
